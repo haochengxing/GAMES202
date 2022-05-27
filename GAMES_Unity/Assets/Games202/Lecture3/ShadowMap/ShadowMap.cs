@@ -21,6 +21,8 @@ public class ShadowMap : MonoBehaviour
 
     private int DepthTextureId = 0;
 
+    private int LightPosId = 0;
+
     void Start()
     {
         GameObject DepthCamera = GameObject.Find(CameraName);
@@ -62,6 +64,7 @@ public class ShadowMap : MonoBehaviour
 
         ProjectionMatrixId = Shader.PropertyToID("ProjectionMatrix");
         DepthTextureId = Shader.PropertyToID("DepthTexture");
+        LightPosId = Shader.PropertyToID("LightPos");
     }
 
     void Update()
@@ -72,6 +75,7 @@ public class ShadowMap : MonoBehaviour
 
         Shader.SetGlobalMatrix(ProjectionMatrixId, tm);
         Shader.SetGlobalTexture(DepthTextureId, depthTexture);
+        Shader.SetGlobalVector(LightPosId, lightTrans.position);
     }
 
 

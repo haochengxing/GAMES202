@@ -20,13 +20,16 @@ Shader "Unlit/ShadowMap"
             struct v2f {
                 float4 pos:SV_POSITION;
                 float2 uv:TEXCOORD0;
-                float4 proj : TEXCOORD3;
-                float2 depth : TEXCOORD4;
+                float4 proj : TEXCOORD1;
+                float2 depth : TEXCOORD2;
+				float3 worldPos :TEXCOORD3;
+				float3 normal : TEXCOORD4;
             };
 
 
             float4x4 ProjectionMatrix;
             sampler2D DepthTexture;
+			float4 LightPos;
 
             v2f vert(appdata_full v)
             {
@@ -39,6 +42,8 @@ Shader "Unlit/ShadowMap"
                 o.proj = mul(ProjectionMatrix, v.vertex);
                 //--------------------------------------------------
                 o.uv = TRANSFORM_TEX(v.texcoord, _MainTex);
+				o.worldPos = mul(unity_ObjectToWorld,v.vertex).xyz;
+				o.normal = v.normal;
                 return o;
             }
 
@@ -60,7 +65,11 @@ Shader "Unlit/ShadowMap"
                 fixed4 dcol = tex2Dproj(DepthTexture, v.proj);
                 float d = DecodeFloatRGBA(dcol);
                 float shadowScale = 1;
-                if(depth > d)
+
+				float3 lightDir = normalize(LightPos - v.worldPos);
+				float bias = max(0.05 * (1.0 - dot(v.normal, lightDir)), 0.005);
+
+                if(depth-bias > d)
                 {
                     shadowScale = 0.55;
                 }
