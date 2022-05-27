@@ -30,6 +30,29 @@ Shader "Unlit/ShadowMap"
             float4x4 ProjectionMatrix;
             sampler2D DepthTexture;
 			float4 LightPos;
+			float TexturePixel;
+
+			float pcfShadow(float2 pos,float depth,float bias){
+				float shadow = 0.0;
+				float2 texelSize = float2(1.0/TexturePixel,1.0/TexturePixel);
+				for(float x=-1;x<=1;x++){
+					for(float y=-1;y<=1;y++){
+						float2 samplePos = pos + float2(x,y)*texelSize;
+						float4 pcfDepthRGBA = tex2D(DepthTexture,samplePos);
+						float pcfDepth = DecodeFloatRGBA(pcfDepthRGBA);
+						shadow += depth - bias > pcfDepth ? 1.0:0.0;
+					}
+				}
+				
+
+				shadow /=  9.0;
+
+				float shadowScale = 1-shadow;
+
+				return shadowScale;
+			}
+
+
 
             v2f vert(appdata_full v)
             {
@@ -62,19 +85,26 @@ Shader "Unlit/ShadowMap"
                     depth = 1-depth;
                 #endif
 
-                fixed4 dcol = tex2Dproj(DepthTexture, v.proj);
-                float d = DecodeFloatRGBA(dcol);
-                float shadowScale = 1;
+                //fixed4 dcol = tex2Dproj(DepthTexture, v.proj);
+                //float d = DecodeFloatRGBA(dcol);
+                
 
 				float3 lightDir = normalize(LightPos - v.worldPos);
 				float bias = max(0.05 * (1.0 - dot(v.normal, lightDir)), 0.005);
 
-                if(depth-bias > d)
-                {
-                    shadowScale = 0.55;
-                }
+
+
+				float shadowScale = pcfShadow(v.proj.xy,depth,bias);
+
+				//float shadowScale = 1;
+                //if(depth-bias > d)
+                //{
+                    //shadowScale = 0.55;
+                //}
                 return col*shadowScale;
             }
+
+			
             ENDCG
         }
     }

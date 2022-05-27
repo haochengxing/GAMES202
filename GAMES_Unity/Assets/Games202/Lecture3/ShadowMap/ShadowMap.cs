@@ -23,6 +23,10 @@ public class ShadowMap : MonoBehaviour
 
     private int LightPosId = 0;
 
+    private int TexturePixelId = 0;
+
+    public int TextureSize = 2048;
+
     void Start()
     {
         GameObject DepthCamera = GameObject.Find(CameraName);
@@ -57,7 +61,7 @@ public class ShadowMap : MonoBehaviour
         sm.m23 = 0.5f;
         sm.m33 = 1;
 
-        depthTexture = new RenderTexture(1024, 1024, 0);
+        depthTexture = new RenderTexture(TextureSize, TextureSize, 0);
         depthTexture.wrapMode = TextureWrapMode.Clamp;
         _camera.targetTexture = depthTexture;
         _camera.SetReplacementShader(shader, "RenderType");
@@ -65,6 +69,7 @@ public class ShadowMap : MonoBehaviour
         ProjectionMatrixId = Shader.PropertyToID("ProjectionMatrix");
         DepthTextureId = Shader.PropertyToID("DepthTexture");
         LightPosId = Shader.PropertyToID("LightPos");
+        TexturePixelId = Shader.PropertyToID("TexturePixel");
     }
 
     void Update()
@@ -76,6 +81,7 @@ public class ShadowMap : MonoBehaviour
         Shader.SetGlobalMatrix(ProjectionMatrixId, tm);
         Shader.SetGlobalTexture(DepthTextureId, depthTexture);
         Shader.SetGlobalVector(LightPosId, lightTrans.position);
+        Shader.SetGlobalFloat(TexturePixelId, TextureSize);
     }
 
 
