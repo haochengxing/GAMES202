@@ -31,6 +31,7 @@ Shader "Unlit/ShadowMap"
             sampler2D DepthTexture;
 			float4 LightPos;
 			float TexturePixel;
+            float lightRadius = 0.1;
 
 			float pcfShadow(float2 pos,float depth,float bias){
 				float shadow = 0.0;
@@ -52,6 +53,75 @@ Shader "Unlit/ShadowMap"
 				return shadowScale;
 			}
 
+
+            float Calculate_Avg_Dblockreceiver(float2 projCoords_xy , float AvgTextureSize)
+            {
+                float2 texelSize = float2(1.0/TexturePixel,1.0/TexturePixel);
+                float result=0.0;
+                for(float i=-AvgTextureSize;i<=AvgTextureSize;++i)
+                {
+                    for(float j=-AvgTextureSize;j<=AvgTextureSize;j++)
+                    {
+                        float2 samplePos = projCoords_xy + float2(i,j)*texelSize;
+						float4 depthRGBA = tex2D(DepthTexture,samplePos);
+						float depth = DecodeFloatRGBA(depthRGBA);
+                        result += depth; 
+                    }
+                }
+                return result/(AvgTextureSize*AvgTextureSize*2*2);
+            }
+
+            //PCSS
+            float PercentageCloserSoftShadowCalculation(float4 projCoords,float depth,float bias)
+            {
+                float shadow=0;
+                
+                float texelSize = 1.0/TexturePixel;
+
+                fixed4 dcol = tex2D(DepthTexture, projCoords.xy);
+                // 采样ShadowMap中的深度
+                float closestDepth = DecodeFloatRGBA(dcol);
+
+
+                // 获取当前着色点的深度
+                float currentDepth = depth;
+  
+                //计算着色点与平均遮挡物的距离 dr
+                float D_light_block=Calculate_Avg_Dblockreceiver(projCoords.xy,7);
+                float D_block_receiver= (currentDepth-D_light_block);
+                // 检查当前点是否在阴影中
+                if( D_light_block<0.01f)
+                    return 0.0;
+                //利用平均遮挡物距离dr计算PCF用到的采样范围 Wsample
+                float fliterArea=D_block_receiver/(D_light_block*projCoords.w) *lightRadius;
+                float fliterSingleX=float(fliterArea);
+                float count=0;
+                fliterSingleX = fliterSingleX >40?40: fliterSingleX;
+                fliterSingleX = fliterSingleX <1?10: fliterSingleX;
+                //计算PCF
+
+                [unroll(40)]
+                for(float i=-fliterSingleX;i<=fliterSingleX;++i)
+                {
+                    count++;
+                    [unroll(40)]
+                    for(float j=-fliterSingleX;j<=fliterSingleX;j++)
+                    {
+                        //  采样周围点在ShadowMap中的深度
+                        float4 samplePos = projCoords + float4(i,j,0,0)*texelSize;
+						float4 depthRGBA = tex2Dproj(DepthTexture,samplePos);
+						float closestDepth = DecodeFloatRGBA(depthRGBA);
+
+                        shadow += currentDepth-bias > closestDepth?1.0:0.0;
+                    }
+                }
+                count = count >0? count :1;
+                shadow = shadow/float(count*count);
+    
+                float shadowScale = 1-shadow;
+    
+                return shadowScale;
+            }
 
 
             v2f vert(appdata_full v)
@@ -94,7 +164,9 @@ Shader "Unlit/ShadowMap"
 
 
 
-				float shadowScale = pcfShadow(v.proj.xy,depth,bias);
+				//float shadowScale = pcfShadow(v.proj.xy,depth,bias);
+
+                float shadowScale = PercentageCloserSoftShadowCalculation(v.proj,depth,bias);
 
 				//float shadowScale = 1;
                 //if(depth-bias > d)
